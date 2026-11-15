@@ -178,8 +178,6 @@ public class MainActivity extends Activity {
                 String addr=getPreferences(0).getString("device",null);
                 if(addr!=null){try{selected=adapter.getRemoteDevice(addr);updateStatus();}catch(IllegalArgumentException ignored){}}
                 if(!hid.registerApp(sdp,null,null,executor,callback)){diagnostic="HID kaydı başlatılamadı";updateStatus();deviceLabel.setText(diagnostic);}
-                String addr=getPreferences(0).getString("device",null);
-                if(addr!=null){try{selected=adapter.getRemoteDevice(addr);updateStatus();if(registered)hid.connect(selected);}catch(IllegalArgumentException ignored){}}
             }
             @Override public void onServiceDisconnected(int profile){hid=null;connected=null;updateStatus();}
         },BluetoothProfile.HID_DEVICE);
