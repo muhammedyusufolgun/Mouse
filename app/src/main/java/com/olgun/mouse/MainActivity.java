@@ -203,7 +203,7 @@ public class MainActivity extends Activity {
             {"Esc","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Del"},
             {"1","2","3","4","5","6","7","8","9","0","-","=","Back"},
             {"Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","Enter"},
-            {"Caps","A","S","D","F","G","H","J","K","L",";","'","\\\\","↑"},
+            {"Caps","A","S","D","F","G","H","J","K","L",";","'","\\","↑"},
             {"Shift","Z","X","C","V","B","N","M",",",".","/","←","↓","→"},
             {"Ctrl","Alt","Win","Space","AltGr","Home","End","PgUp","PgDn","Ins"}
         };
@@ -240,7 +240,7 @@ public class MainActivity extends Activity {
             if(ch>='A'&&ch<='Z')return 4+ch-'A';
             if(ch>='1'&&ch<='9')return 30+ch-'1';
             if(ch=='0')return 39;
-            switch(ch){case '-':return 45;case '=':return 46;case '[':return 47;case ']':return 48;case '\\\\':return 49;case ';':return 51;case '\'':return 52;case ',':return 54;case '.':return 55;case '/':return 56;}
+            switch(ch){case '-':return 45;case '=':return 46;case '[':return 47;case ']':return 48;case '\\':return 49;case ';':return 51;case '\'':return 52;case ',':return 54;case '.':return 55;case '/':return 56;}
         }
         if(key.startsWith("F")){try{int n=Integer.parseInt(key.substring(1));if(n>=1&&n<=12)return 57+n;}catch(Exception ignored){}}
         switch(key){
