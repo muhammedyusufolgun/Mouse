@@ -13,6 +13,9 @@ import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.view.*;
+import android.view.inputmethod.InputMethodManager;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.widget.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -39,6 +42,9 @@ public class MainActivity extends Activity {
     private int modifiers=0;
     private LinearLayout keyboardPanel;
     private LinearLayout mousePanel;
+    private EditText typingField;
+    private String lastTyped="";
+    private long nextKeyTime=0;
     private final Executor executor = Executors.newSingleThreadExecutor();
     private static final byte[] MOUSE_DESCRIPTOR = new byte[] {
         0x05,0x01, 0x09,0x02, (byte)0xA1,0x01, (byte)0x85,0x01, 0x09,0x01, (byte)0xA1,0x00,
@@ -103,6 +109,8 @@ public class MainActivity extends Activity {
             setRequestedOrientation(keyboardMode?ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE:ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
             mousePanel.setVisibility(keyboardMode?View.GONE:View.VISIBLE);
             keyboardPanel.setVisibility(keyboardMode?View.VISIBLE:View.GONE);
+            if(keyboardMode){typingField.requestFocus();handler.postDelayed(()->((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(typingField,InputMethodManager.SHOW_IMPLICIT),350);}
+            else ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(typingField.getWindowToken(),0);
         });
         LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,dp(56));rp.topMargin=dp(4);root.addView(row,rp);
@@ -198,7 +206,52 @@ public class MainActivity extends Activity {
         System.arraycopy(KEYBOARD_DESCRIPTOR,0,combined,MOUSE_DESCRIPTOR.length,KEYBOARD_DESCRIPTOR.length);
         return combined;
     }
+    private void sendKeyboardReport(int modifier,int code){
+        if(!hidConnected||connected==null||hid==null)return;
+        try{hid.sendReport(connected,2,new byte[]{(byte)modifier,0,(byte)code,0,0,0,0,0});}
+        catch(Exception e){deviceLabel.setText("Klavye raporu gönderilemedi");}
+    }
+    private void queueKey(int modifier,int code){
+        long now=SystemClock.uptimeMillis();
+        nextKeyTime=Math.max(nextKeyTime,now)+80;
+        handler.postAtTime(()->sendKeyboardReport(modifier,code),nextKeyTime);
+        handler.postAtTime(()->sendKeyboardReport(0,0),nextKeyTime+40);
+        nextKeyTime+=45;
+    }
+    private void sendTypedText(String text){
+        if(!hidConnected || connected==null){deviceLabel.setText("HID klavye bağlı değil");return;}
+        for(int i=0;i<text.length();i++){
+            char ch=text.charAt(i);
+            int code=keyCode(String.valueOf(ch));
+            int mod=Character.isUpperCase(ch)?2:0;
+            String shifted="!@#$%^&*()";
+            int idx=shifted.indexOf(ch);
+            if(idx>=0){code=idx==9?39:30+idx;mod=2;}
+            if(code==0){deviceLabel.setText("Karakter desteklenmiyor: "+ch);continue;}
+            queueKey(mod,code);
+        }
+    }
     private void buildKeyboard(){
+        typingField=new EditText(this);
+        typingField.setSingleLine(true);
+        typingField.setHint("Buraya dokunun, Samsung klavyesiyle yazın");
+        typingField.setTextSize(15);
+        typingField.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        keyboardPanel.addView(typingField,new LinearLayout.LayoutParams(-1,dp(46)));
+        typingField.addTextChangedListener(new TextWatcher(){
+            public void beforeTextChanged(CharSequence s,int start,int count,int after){}
+            public void onTextChanged(CharSequence s,int start,int before,int count){}
+            public void afterTextChanged(Editable e){
+                String current=e.toString();
+                int prefix=0;
+                while(prefix<lastTyped.length()&&prefix<current.length()&&lastTyped.charAt(prefix)==current.charAt(prefix))prefix++;
+                int removed=lastTyped.length()-prefix;
+                for(int i=0;i<removed;i++)queueKey(0,42);
+                if(current.length()>prefix)sendTypedText(current.substring(prefix));
+                lastTyped=current;
+            }
+        });
+
         String[][] rows={
             {"Esc","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Del"},
             {"1","2","3","4","5","6","7","8","9","0","-","=","Back"},
