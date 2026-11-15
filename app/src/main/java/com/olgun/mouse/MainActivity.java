@@ -110,7 +110,6 @@ public class MainActivity extends Activity {
         LinearLayout pad=new LinearLayout(this);pad.setOrientation(1);pad.setPadding(dp(10),dp(8),dp(10),dp(10));
         pad.setBackground(bg(Color.WHITE,Color.BLACK));
         LinearLayout.LayoutParams padParams=new LinearLayout.LayoutParams(-1,0,2);root.addView(pad,padParams);
-        View remainingSpace=new View(this);root.addView(remainingSpace,new LinearLayout.LayoutParams(1,0,1));
         touchSurface=new TouchSurface(this);View touch=touchSurface;pad.addView(touch,new LinearLayout.LayoutParams(-1,0,1));
         touch.setOnTouchListener((v,e)->{
             switch(e.getActionMasked()){
@@ -130,7 +129,8 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams rlp=new LinearLayout.LayoutParams(0,-1,1);rlp.leftMargin=dp(6);clicks.addView(rightButton,rlp);
         bindClick(leftButton,1);bindClick(rightButton,2);
         TextView footer=label("Muhammed Yusuf OLGUN");footer.setTextColor(0xFFAAAAAA);footer.setTextSize(12);
-        LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(25));fp.topMargin=dp(3);root.addView(footer,fp);
+        LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(18));fp.topMargin=0;root.addView(footer,fp);
+        View remainingSpace=new View(this);root.addView(remainingSpace,new LinearLayout.LayoutParams(1,0,1));
         updateStatus();
     }
     private TextView label(String s){TextView t=new TextView(this);t.setText(s);t.setTextSize(13);t.setTextColor(Color.BLACK);t.setTypeface(null,Typeface.BOLD);t.setGravity(Gravity.CENTER);return t;}
