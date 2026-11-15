@@ -7,6 +7,8 @@ import android.bluetooth.*;
 import android.content.*;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.view.*;
@@ -26,9 +28,10 @@ public class MainActivity extends Activity {
     private float lastX,lastY;
     private boolean tracking = false;
     private boolean registered = false;
+    private TouchSurface touchSurface;
     private final Executor executor = Executors.newSingleThreadExecutor();
     private static final byte[] MOUSE_DESCRIPTOR = new byte[] {
-        0x05,0x01, 0x09,0x02, (byte)0xA1,0x01, 0x09,0x01, (byte)0xA1,0x00,
+        0x05,0x01, 0x09,0x02, (byte)0xA1,0x01, (byte)0x85,0x01, 0x09,0x01, (byte)0xA1,0x00,
         0x05,0x09, 0x19,0x01, 0x29,0x03, 0x15,0x00, 0x25,0x01,
         (byte)0x95,0x03, 0x75,0x01, (byte)0x81,0x02,
         (byte)0x95,0x01, 0x75,0x05, (byte)0x81,0x03,
@@ -70,13 +73,13 @@ public class MainActivity extends Activity {
         b.setTextSize(13);b.setTypeface(null,Typeface.BOLD);b.setPadding(dp(5),0,dp(5),0);b.setBackground(bg(color,0));return b;
     }
     private void buildUi() {
-        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(35),dp(12),dp(10));
+        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(12),dp(12),dp(6));
         root.setBackgroundColor(Color.rgb(245,245,245));setContentView(root);
         TextView title=new TextView(this);title.setText("Mouse");title.setGravity(Gravity.CENTER);
         title.setTextSize(23);title.setTypeface(null,Typeface.BOLD);title.setTextColor(Color.WHITE);
         title.setBackgroundColor(Color.BLACK);root.addView(title,new LinearLayout.LayoutParams(-1,dp(65)));
         LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,dp(56));rp.topMargin=dp(8);root.addView(row,rp);
+        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,dp(56));rp.topMargin=dp(4);root.addView(row,rp);
         Button pair=button("Eşleş",0xFFAADCF6);row.addView(pair,new LinearLayout.LayoutParams(dp(85),dp(44)));
         pair.setOnClickListener(v->chooseDevice());
         deviceLabel=new TextView(this);deviceLabel.setTextSize(12);deviceLabel.setTextColor(Color.BLACK);deviceLabel.setTypeface(null,Typeface.BOLD);
@@ -93,33 +96,30 @@ public class MainActivity extends Activity {
                 connected=null;selected=null;getPreferences(0).edit().remove("device").apply();updateStatus();
             }
         });
-        View gap=new View(this);root.addView(gap,new LinearLayout.LayoutParams(1,dp(16)));
+        View gap=new View(this);root.addView(gap,new LinearLayout.LayoutParams(1,dp(5)));
         LinearLayout pad=new LinearLayout(this);pad.setOrientation(1);pad.setPadding(dp(10),dp(8),dp(10),dp(10));
         pad.setBackground(bg(Color.WHITE,Color.BLACK));
         root.addView(pad,new LinearLayout.LayoutParams(-1,0,1));
-        View touch=new View(this);pad.addView(touch,new LinearLayout.LayoutParams(-1,0,1));
+        touchSurface=new TouchSurface(this);View touch=touchSurface;pad.addView(touch,new LinearLayout.LayoutParams(-1,0,1));
         touch.setOnTouchListener((v,e)->{
             switch(e.getActionMasked()){
                 case MotionEvent.ACTION_DOWN: lastX=e.getX();lastY=e.getY();tracking=true;return true;
                 case MotionEvent.ACTION_MOVE:
                     if(tracking){float dx=e.getX()-lastX,dy=e.getY()-lastY;
                         sendMovement(Math.round(dx*1.3f),Math.round(dy*1.3f));
+                        touchSurface.move(dx,dy);
                         lastX=e.getX();lastY=e.getY();}
                     return true;
                 case MotionEvent.ACTION_UP:case MotionEvent.ACTION_CANCEL:tracking=false;return true;
             }return true;
         });
-        LinearLayout labels=new LinearLayout(this);
-        TextView ll=label("Sol Buton"),rr=label("Sağ Buton");
-        labels.addView(ll,new LinearLayout.LayoutParams(0,dp(23),1));
-        labels.addView(rr,new LinearLayout.LayoutParams(0,dp(23),1));pad.addView(labels);
         LinearLayout clicks=new LinearLayout(this);pad.addView(clicks,new LinearLayout.LayoutParams(-1,dp(48)));
-        leftButton=button("",0xFFBBBBBB);rightButton=button("",0xFFBBBBBB);
+        leftButton=button("Sol Buton",0xFFBBBBBB);rightButton=button("Sağ Buton",0xFFBBBBBB);
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);lp.rightMargin=dp(6);clicks.addView(leftButton,lp);
         LinearLayout.LayoutParams rlp=new LinearLayout.LayoutParams(0,-1,1);rlp.leftMargin=dp(6);clicks.addView(rightButton,rlp);
         bindClick(leftButton,1);bindClick(rightButton,2);
         TextView footer=label("Muhammed Yusuf OLGUN");footer.setTextColor(0xFFAAAAAA);footer.setTextSize(12);
-        LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(45));fp.topMargin=dp(8);root.addView(footer,fp);
+        LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(25));fp.topMargin=dp(3);root.addView(footer,fp);
         updateStatus();
     }
     private TextView label(String s){TextView t=new TextView(this);t.setText(s);t.setTextSize(13);t.setTextColor(Color.BLACK);t.setTypeface(null,Typeface.BOLD);t.setGravity(Gravity.CENTER);return t;}
@@ -137,7 +137,8 @@ public class MainActivity extends Activity {
     }
     private void report(int dx,int dy,int wheel){
         if(hid==null||connected==null)return;
-        try{hid.sendReport(connected,0,new byte[]{(byte)buttons,(byte)dx,(byte)dy,(byte)wheel});}
+        try{boolean sent=hid.sendReport(connected,1,new byte[]{(byte)buttons,(byte)dx,(byte)dy,(byte)wheel});
+            if(!sent)deviceLabel.setText("HID raporu gönderilemedi");}
         catch(SecurityException ex){deviceLabel.setText("Bluetooth izni gerekli");}
     }
     private void updateStatus(){
@@ -151,7 +152,7 @@ public class MainActivity extends Activity {
             @Override public void onServiceConnected(int profile,BluetoothProfile proxy){
                 hid=(BluetoothHidDevice)proxy;
                 BluetoothHidDeviceAppSdpSettings sdp=new BluetoothHidDeviceAppSdpSettings(
-                    "Mouse","Bluetooth Touchpad","Olgun",BluetoothHidDevice.SUBCLASS1_COMBO,MOUSE_DESCRIPTOR);
+                    "Mouse","Bluetooth Touchpad","Olgun",BluetoothHidDevice.SUBCLASS1_MOUSE,MOUSE_DESCRIPTOR);
                 hid.registerApp(sdp,null,null,executor,callback);
                 String addr=getPreferences(0).getString("device",null);
                 if(addr!=null){try{selected=adapter.getRemoteDevice(addr);updateStatus();if(registered)hid.connect(selected);}catch(IllegalArgumentException ignored){}}
@@ -183,6 +184,25 @@ public class MainActivity extends Activity {
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
         super.onRequestPermissionsResult(request,permissions,results);
         if(request==42&&results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED)startBluetooth();
+    }
+    private static class TouchSurface extends View {
+        private final Paint paint=new Paint(3);
+        private float cursorX=-1,cursorY=-1;
+        TouchSurface(Context context){super(context);}
+        void move(float dx,float dy){
+            if(cursorX<0){cursorX=getWidth()/2f;cursorY=getHeight()/2f;}
+            cursorX=Math.max(8,Math.min(getWidth()-8,cursorX+dx));
+            cursorY=Math.max(8,Math.min(getHeight()-8,cursorY+dy));invalidate();
+        }
+        @Override protected void onDraw(Canvas canvas){
+            super.onDraw(canvas);
+            if(cursorX<0){cursorX=getWidth()/2f;cursorY=getHeight()/2f;}
+            paint.setColor(Color.BLACK);
+            canvas.drawCircle(cursorX,cursorY,dpLocal(6),paint);
+            paint.setColor(Color.WHITE);
+            canvas.drawCircle(cursorX,cursorY,dpLocal(3),paint);
+        }
+        private float dpLocal(int n){return n*getResources().getDisplayMetrics().density;}
     }
     @Override protected void onDestroy(){
         if(hid!=null){try{hid.unregisterApp();if(adapter!=null)adapter.closeProfileProxy(BluetoothProfile.HID_DEVICE,hid);}catch(Exception ignored){}}
