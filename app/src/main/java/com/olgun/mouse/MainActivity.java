@@ -273,8 +273,8 @@ public class MainActivity extends Activity {
                 b.setOnClickListener(v->keyPress(key,b));
             }
         }
-    }
         */
+    }
     private void keyPress(String key,Button button){
         int modifier=key.equals("Ctrl")?1:key.equals("Shift")?2:key.equals("Alt")?4:key.equals("Win")?8:key.equals("AltGr")?64:0;
         if(modifier!=0){modifiers^=modifier;button.setBackground(bg((modifiers&modifier)!=0?0xFF92C8F0:0xFFE1E1E1,0));return;}
