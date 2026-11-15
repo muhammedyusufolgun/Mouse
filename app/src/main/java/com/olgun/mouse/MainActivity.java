@@ -42,6 +42,9 @@ public class MainActivity extends Activity {
     private int modifiers=0;
     private LinearLayout keyboardPanel;
     private LinearLayout mousePanel;
+    private LinearLayout connectionRow;
+    private TextView footerLabel;
+    private View mouseGap;
     private EditText typingField;
     private String lastTyped="";
     private long nextKeyTime=0;
@@ -100,7 +103,7 @@ public class MainActivity extends Activity {
         b.setTextSize(13);b.setTypeface(null,Typeface.BOLD);b.setPadding(dp(5),0,dp(5),0);b.setBackground(bg(color,0));return b;
     }
     private void buildUi() {
-        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(14),dp(12),dp(2));
+        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(38),dp(12),dp(2));
         root.setBackgroundColor(Color.rgb(245,245,245));setContentView(root);
         TextView title=new TextView(this);title.setText("Mouse");title.setGravity(Gravity.CENTER);
         title.setTextSize(23);title.setTypeface(null,Typeface.BOLD);title.setTextColor(Color.WHITE);
@@ -108,11 +111,14 @@ public class MainActivity extends Activity {
         title.setOnClickListener(v->{keyboardMode=!keyboardMode;title.setText(keyboardMode?"Klavye":"Mouse");
             setRequestedOrientation(keyboardMode?ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE:ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
             mousePanel.setVisibility(keyboardMode?View.GONE:View.VISIBLE);
+            connectionRow.setVisibility(keyboardMode?View.GONE:View.VISIBLE);
+            footerLabel.setVisibility(keyboardMode?View.GONE:View.VISIBLE);
+            mouseGap.setVisibility(keyboardMode?View.GONE:View.VISIBLE);
             keyboardPanel.setVisibility(keyboardMode?View.VISIBLE:View.GONE);
-            if(keyboardMode){typingField.requestFocus();handler.postDelayed(()->((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(typingField,InputMethodManager.SHOW_IMPLICIT),350);}
+            if(keyboardMode){typingField.setFocusableInTouchMode(true);typingField.requestFocus();handler.postDelayed(()->{if(keyboardMode){typingField.requestFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(typingField,InputMethodManager.SHOW_FORCED);}},550);}
             else ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(typingField.getWindowToken(),0);
         });
-        LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout row=new LinearLayout(this);connectionRow=row;row.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,dp(56));rp.topMargin=dp(4);root.addView(row,rp);
         Button pair=button("Eşleş",0xFFAADCF6);row.addView(pair,new LinearLayout.LayoutParams(dp(85),dp(44)));
         pair.setOnClickListener(v->chooseDevice());
@@ -132,7 +138,7 @@ public class MainActivity extends Activity {
                 finishAndRemoveTask();
             }
         });
-        View gap=new View(this);root.addView(gap,new LinearLayout.LayoutParams(1,dp(5)));
+        View gap=new View(this);mouseGap=gap;root.addView(gap,new LinearLayout.LayoutParams(1,dp(5)));
         LinearLayout pad=new LinearLayout(this);pad.setOrientation(1);pad.setPadding(dp(10),dp(8),dp(10),dp(10));
         pad.setBackground(bg(Color.WHITE,Color.BLACK));
         LinearLayout.LayoutParams padParams=new LinearLayout.LayoutParams(-1,0,2);root.addView(pad,padParams);
@@ -155,7 +161,7 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);lp.rightMargin=dp(6);clicks.addView(leftButton,lp);
         LinearLayout.LayoutParams rlp=new LinearLayout.LayoutParams(0,-1,1);rlp.leftMargin=dp(6);clicks.addView(rightButton,rlp);
         bindClick(leftButton,1);bindClick(rightButton,2);
-        TextView footer=label("Muhammed Yusuf OLGUN");footer.setTextColor(0xFFAAAAAA);footer.setTextSize(12);
+        TextView footer=label("Muhammed Yusuf OLGUN");footerLabel=footer;footer.setTextColor(0xFFAAAAAA);footer.setTextSize(12);
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(18));fp.topMargin=0;root.addView(footer,fp);
         keyboardPanel=new LinearLayout(this);keyboardPanel.setOrientation(1);keyboardPanel.setVisibility(View.GONE);
         root.addView(keyboardPanel,new LinearLayout.LayoutParams(-1,-2));
@@ -213,10 +219,10 @@ public class MainActivity extends Activity {
     }
     private void queueKey(int modifier,int code){
         long now=SystemClock.uptimeMillis();
-        nextKeyTime=Math.max(nextKeyTime,now)+15;
+        nextKeyTime=Math.max(nextKeyTime,now)+30;
         handler.postAtTime(()->sendKeyboardReport(modifier,code),nextKeyTime);
-        handler.postAtTime(()->sendKeyboardReport(0,0),nextKeyTime+15);
-        nextKeyTime+=20;
+        handler.postAtTime(()->sendKeyboardReport(0,0),nextKeyTime+35);
+        nextKeyTime+=40;
     }
     private void sendTypedText(String text){
         if(!hidConnected || connected==null){deviceLabel.setText("HID bağlı değil: Windows yazı alamıyor");return;}
@@ -240,6 +246,7 @@ public class MainActivity extends Activity {
         typingField.setTextSize(15);
         typingField.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         keyboardPanel.addView(typingField,new LinearLayout.LayoutParams(-1,dp(44)));
+        typingField.setBackground(bg(Color.WHITE,Color.BLACK));
         typingField.setImeOptions(android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI);
         typingField.setShowSoftInputOnFocus(true);
         typingField.addTextChangedListener(new TextWatcher(){
