@@ -30,6 +30,8 @@ public class MainActivity extends Activity {
     private boolean registered = false;
     private boolean hidConnected = false;
     private String diagnostic = "";
+    private boolean shuttingDown = false;
+    private int connectAttempts = 0;
     private TouchSurface touchSurface;
     private final Executor executor = Executors.newSingleThreadExecutor();
     private static final byte[] MOUSE_DESCRIPTOR = new byte[] {
@@ -43,11 +45,11 @@ public class MainActivity extends Activity {
     };
     private final BluetoothHidDevice.Callback callback = new BluetoothHidDevice.Callback() {
         @Override public void onAppStatusChanged(BluetoothDevice plugged, boolean registered) {
-            runOnUiThread(() -> { MainActivity.this.registered = registered; diagnostic = registered ? "HID hazır" : "HID kaydı başarısız"; updateStatus(); if (registered && selected != null && hid != null && !hid.connect(selected)) deviceLabel.setText("HID bağlantı isteği reddedildi"); });
+            runOnUiThread(() -> { MainActivity.this.registered = registered; diagnostic = registered ? "HID hazır" : "HID kaydı başarısız"; updateStatus(); if (registered && selected != null && hid != null) connectHid(); });
         }
         @Override public void onConnectionStateChanged(BluetoothDevice device, int state) {
             runOnUiThread(() -> {
-                if (state == BluetoothProfile.STATE_CONNECTED) {connected = device;hidConnected = true;diagnostic = "HID bağlı";}
+                if (state == BluetoothProfile.STATE_CONNECTED) {connected = device;hidConnected = true;diagnostic = "HID bağlı";connectAttempts = 0;}
                 else if (connected != null && connected.equals(device)) {connected = null;hidConnected = false;diagnostic = "HID bağlantısı kesildi";}
                 updateStatus();
             });
@@ -94,8 +96,10 @@ public class MainActivity extends Activity {
                 handler.postDelayed(()->{if(SystemClock.uptimeMillis()>=closeDeadline)closeButton.setText("Kapat");},3000);
             } else {
                 closeDeadline=0;closeButton.setText("Kapat");
+                shuttingDown=true;
                 if(hid!=null && connected!=null)hid.disconnect(connected);
-                connected=null;selected=null;getPreferences(0).edit().remove("device").apply();updateStatus();
+                connected=null;hidConnected=false;updateStatus();
+                finishAndRemoveTask();
             }
         });
         View gap=new View(this);root.addView(gap,new LinearLayout.LayoutParams(1,dp(5)));
@@ -148,6 +152,21 @@ public class MainActivity extends Activity {
         if(deviceLabel==null)return;
         deviceLabel.setText(hidConnected && connected!=null ? "HID fare: "+connected.getName() : selected!=null ? "Seçili (HID bekleniyor): "+selected.getName() : "Bağlı değil");
     }
+    private void connectHid(){
+        if(shuttingDown || hid==null || selected==null || !registered || hidConnected)return;
+        try{
+            connectAttempts++;
+            boolean accepted=hid.connect(selected);
+            diagnostic=accepted ? "HID bağlantısı kuruluyor" : "Windows HID bağlantısını reddetti";
+            deviceLabel.setText(diagnostic);
+            if(connectAttempts<3)handler.postDelayed(()->{
+                if(!hidConnected && registered && !shuttingDown)connectHid();
+            },3500);
+            else handler.postDelayed(()->{
+                if(!hidConnected && !shuttingDown)deviceLabel.setText("HID kurulamadı: Windows'ta cihazı kaldırıp yeniden eşleştirin");
+            },3500);
+        }catch(SecurityException e){deviceLabel.setText("Bluetooth izni gerekli");}
+    }
     private void startBluetooth(){
         if(adapter==null){deviceLabel.setText("Bluetooth desteklenmiyor");return;}
         if(!adapter.isEnabled()){startActivity(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE));return;}
@@ -156,6 +175,8 @@ public class MainActivity extends Activity {
                 hid=(BluetoothHidDevice)proxy;
                 BluetoothHidDeviceAppSdpSettings sdp=new BluetoothHidDeviceAppSdpSettings(
                     "Mouse","Bluetooth Touchpad","Olgun",BluetoothHidDevice.SUBCLASS1_MOUSE,MOUSE_DESCRIPTOR);
+                String addr=getPreferences(0).getString("device",null);
+                if(addr!=null){try{selected=adapter.getRemoteDevice(addr);updateStatus();}catch(IllegalArgumentException ignored){}}
                 if(!hid.registerApp(sdp,null,null,executor,callback)){diagnostic="HID kaydı başlatılamadı";updateStatus();deviceLabel.setText(diagnostic);}
                 String addr=getPreferences(0).getString("device",null);
                 if(addr!=null){try{selected=adapter.getRemoteDevice(addr);updateStatus();if(registered)hid.connect(selected);}catch(IllegalArgumentException ignored){}}
@@ -180,7 +201,7 @@ public class MainActivity extends Activity {
         for(int i=0;i<list.size();i++)names[i]=(list.get(i).getName()==null?"Cihaz":list.get(i).getName())+" ("+list.get(i).getAddress()+")";
         new AlertDialog.Builder(this).setTitle("Eşleşmiş cihaz seç").setItems(names,(d,which)->{
             selected=list.get(which);getPreferences(0).edit().putString("device",selected.getAddress()).apply();
-            updateStatus();if(hid!=null && registered && !hid.connect(selected))deviceLabel.setText("HID bağlantı isteği reddedildi");
+            connectAttempts=0;updateStatus();if(hid!=null && registered)connectHid();
         }).setNeutralButton("Bluetooth Ayarları",(d,w)->startActivity(new Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)))
           .setNegativeButton("İptal",null).show();
     }
@@ -208,6 +229,7 @@ public class MainActivity extends Activity {
         private float dpLocal(int n){return n*getResources().getDisplayMetrics().density;}
     }
     @Override protected void onDestroy(){
+        shuttingDown=true;
         if(hid!=null){try{hid.unregisterApp();if(adapter!=null)adapter.closeProfileProxy(BluetoothProfile.HID_DEVICE,hid);}catch(Exception ignored){}}
         super.onDestroy();
     }
