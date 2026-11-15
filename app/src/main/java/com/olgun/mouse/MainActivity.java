@@ -238,6 +238,8 @@ public class MainActivity extends Activity {
         typingField.setTextSize(15);
         typingField.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         keyboardPanel.addView(typingField,new LinearLayout.LayoutParams(-1,dp(46)));
+        typingField.setImeOptions(android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI);
+        typingField.setShowSoftInputOnFocus(true);
         typingField.addTextChangedListener(new TextWatcher(){
             public void beforeTextChanged(CharSequence s,int start,int count,int after){}
             public void onTextChanged(CharSequence s,int start,int before,int count){}
@@ -252,7 +254,8 @@ public class MainActivity extends Activity {
             }
         });
 
-        String[][] rows={
+        /* Physical key grid disabled: use the selected Android/Samsung IME only. */
+        /* String[][] rows={
             {"Esc","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Del"},
             {"1","2","3","4","5","6","7","8","9","0","-","=","Back"},
             {"Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","Enter"},
@@ -271,6 +274,7 @@ public class MainActivity extends Activity {
             }
         }
     }
+        */
     private void keyPress(String key,Button button){
         int modifier=key.equals("Ctrl")?1:key.equals("Shift")?2:key.equals("Alt")?4:key.equals("Win")?8:key.equals("AltGr")?64:0;
         if(modifier!=0){modifiers^=modifier;button.setBackground(bg((modifiers&modifier)!=0?0xFF92C8F0:0xFFE1E1E1,0));return;}
