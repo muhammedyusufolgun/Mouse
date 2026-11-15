@@ -25,6 +25,7 @@ public class MainActivity extends Activity {
     private int buttons = 0;
     private float lastX,lastY;
     private boolean tracking = false;
+    private boolean registered = false;
     private final Executor executor = Executors.newSingleThreadExecutor();
     private static final byte[] MOUSE_DESCRIPTOR = new byte[] {
         0x05,0x01, 0x09,0x02, (byte)0xA1,0x01, 0x09,0x01, (byte)0xA1,0x00,
@@ -37,7 +38,7 @@ public class MainActivity extends Activity {
     };
     private final BluetoothHidDevice.Callback callback = new BluetoothHidDevice.Callback() {
         @Override public void onAppStatusChanged(BluetoothDevice plugged, boolean registered) {
-            runOnUiThread(() -> { updateStatus(); if (registered && selected != null) hid.connect(selected); });
+            runOnUiThread(() -> { MainActivity.this.registered = registered; updateStatus(); if (registered && selected != null && hid != null) hid.connect(selected); });
         }
         @Override public void onConnectionStateChanged(BluetoothDevice device, int state) {
             runOnUiThread(() -> {
@@ -153,7 +154,7 @@ public class MainActivity extends Activity {
                     "Mouse","Bluetooth Touchpad","Olgun",BluetoothHidDevice.SUBCLASS1_COMBO,MOUSE_DESCRIPTOR);
                 hid.registerApp(sdp,null,null,executor,callback);
                 String addr=getPreferences(0).getString("device",null);
-                if(addr!=null){try{selected=adapter.getRemoteDevice(addr);updateStatus();}catch(IllegalArgumentException ignored){}}
+                if(addr!=null){try{selected=adapter.getRemoteDevice(addr);updateStatus();if(registered)hid.connect(selected);}catch(IllegalArgumentException ignored){}}
             }
             @Override public void onServiceDisconnected(int profile){hid=null;connected=null;updateStatus();}
         },BluetoothProfile.HID_DEVICE);
@@ -175,7 +176,7 @@ public class MainActivity extends Activity {
         for(int i=0;i<list.size();i++)names[i]=(list.get(i).getName()==null?"Cihaz":list.get(i).getName())+" ("+list.get(i).getAddress()+")";
         new AlertDialog.Builder(this).setTitle("Eşleşmiş cihaz seç").setItems(names,(d,which)->{
             selected=list.get(which);getPreferences(0).edit().putString("device",selected.getAddress()).apply();
-            updateStatus();if(hid!=null)hid.connect(selected);
+            updateStatus();if(hid!=null && registered)hid.connect(selected);
         }).setNeutralButton("Bluetooth Ayarları",(d,w)->startActivity(new Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)))
           .setNegativeButton("İptal",null).show();
     }
