@@ -215,7 +215,7 @@ public class MainActivity extends Activity {
     }
     private void sendKeyboardReport(int modifier,int code){
         if(!hidConnected||connected==null||hid==null)return;
-        try{boolean ok=hid.sendReport(connected,2,new byte[]{(byte)modifier,0,(byte)code,0,0,0,0,0});if(!ok)deviceLabel.setText("HID klavye raporu reddedildi (ID 2)");else if(code!=0){sentKeyCount++;deviceLabel.setText("Klavye HID gönderildi: "+sentKeyCount);}}
+        try{boolean ok=hid.sendReport(connected,2,new byte[]{(byte)modifier,0,(byte)code,0,0,0,0,0});if(!ok)deviceLabel.setText("HID klavye raporu reddedildi (ID 2)");else if(code!=0){sentKeyCount++;}}
         catch(Exception e){deviceLabel.setText("Klavye raporu gönderilemedi");}
     }
     private void queueKey(int modifier,int code){
