@@ -234,17 +234,30 @@ public class MainActivity extends Activity {
         handler.postAtTime(()->sendKeyboardReport(0,0),nextKeyTime+55);
         nextKeyTime+=65;
     }
+    // Turkish Q physical key positions; Windows input language must be Turkish Q.
+    private int turkishQCode(char ch){
+        switch(ch){
+            case 'ı': case 'I': return 12;
+            case 'i': case 'İ': return 52;
+            case 'ğ': case 'Ğ': return 47;
+            case 'ü': case 'Ü': return 48;
+            case 'ş': case 'Ş': return 51;
+            case 'ö': case 'Ö': return 54;
+            case 'ç': case 'Ç': return 55;
+            default: return keyCode(String.valueOf(ch));
+        }
+    }
     private void sendTypedText(String text){
         if(!hidConnected || connected==null){deviceLabel.setText("HID bağlı değil: Windows yazı alamıyor");return;}
         for(int i=0;i<text.length();i++){
             char ch=text.charAt(i);
-            int code=keyCode(String.valueOf(ch));
+            int code=turkishQCode(ch);
             int mod=Character.isUpperCase(ch)?2:0;
             String shifted="!@#$%^&*()";
             int idx=shifted.indexOf(ch);
             if(idx>=0){code=idx==9?39:30+idx;mod=2;}
             if(ch==32){code=44;mod=0;}
-            if(code==0){deviceLabel.setText("Karakter desteklenmiyor: "+ch);continue;}
+            if(code==0){deviceLabel.setText("Desteklenmeyen karakter: "+ch);continue;}
             queueKey(mod,code);
         }
     }
