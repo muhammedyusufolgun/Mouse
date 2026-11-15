@@ -100,7 +100,7 @@ public class MainActivity extends Activity {
         b.setTextSize(13);b.setTypeface(null,Typeface.BOLD);b.setPadding(dp(5),0,dp(5),0);b.setBackground(bg(color,0));return b;
     }
     private void buildUi() {
-        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(42),dp(12),dp(6));
+        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(14),dp(12),dp(2));
         root.setBackgroundColor(Color.rgb(245,245,245));setContentView(root);
         TextView title=new TextView(this);title.setText("Mouse");title.setGravity(Gravity.CENTER);
         title.setTextSize(23);title.setTypeface(null,Typeface.BOLD);title.setTextColor(Color.WHITE);
@@ -158,7 +158,7 @@ public class MainActivity extends Activity {
         TextView footer=label("Muhammed Yusuf OLGUN");footer.setTextColor(0xFFAAAAAA);footer.setTextSize(12);
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(18));fp.topMargin=0;root.addView(footer,fp);
         keyboardPanel=new LinearLayout(this);keyboardPanel.setOrientation(1);keyboardPanel.setVisibility(View.GONE);
-        root.addView(keyboardPanel,new LinearLayout.LayoutParams(-1,0,2));
+        root.addView(keyboardPanel,new LinearLayout.LayoutParams(-1,-2));
         buildKeyboard();
         View remainingSpace=new View(this);root.addView(remainingSpace,new LinearLayout.LayoutParams(1,0,1));
         updateStatus();
@@ -208,18 +208,18 @@ public class MainActivity extends Activity {
     }
     private void sendKeyboardReport(int modifier,int code){
         if(!hidConnected||connected==null||hid==null)return;
-        try{hid.sendReport(connected,2,new byte[]{(byte)modifier,0,(byte)code,0,0,0,0,0});}
+        try{boolean ok=hid.sendReport(connected,2,new byte[]{(byte)modifier,0,(byte)code,0,0,0,0,0});if(!ok)deviceLabel.setText("HID klavye raporu reddedildi");}
         catch(Exception e){deviceLabel.setText("Klavye raporu gönderilemedi");}
     }
     private void queueKey(int modifier,int code){
         long now=SystemClock.uptimeMillis();
-        nextKeyTime=Math.max(nextKeyTime,now)+80;
+        nextKeyTime=Math.max(nextKeyTime,now)+15;
         handler.postAtTime(()->sendKeyboardReport(modifier,code),nextKeyTime);
-        handler.postAtTime(()->sendKeyboardReport(0,0),nextKeyTime+40);
-        nextKeyTime+=45;
+        handler.postAtTime(()->sendKeyboardReport(0,0),nextKeyTime+15);
+        nextKeyTime+=20;
     }
     private void sendTypedText(String text){
-        if(!hidConnected || connected==null){deviceLabel.setText("HID klavye bağlı değil");return;}
+        if(!hidConnected || connected==null){deviceLabel.setText("HID bağlı değil: Windows yazı alamıyor");return;}
         for(int i=0;i<text.length();i++){
             char ch=text.charAt(i);
             int code=keyCode(String.valueOf(ch));
@@ -227,6 +227,7 @@ public class MainActivity extends Activity {
             String shifted="!@#$%^&*()";
             int idx=shifted.indexOf(ch);
             if(idx>=0){code=idx==9?39:30+idx;mod=2;}
+            if(ch==32){code=44;mod=0;}
             if(code==0){deviceLabel.setText("Karakter desteklenmiyor: "+ch);continue;}
             queueKey(mod,code);
         }
@@ -234,10 +235,11 @@ public class MainActivity extends Activity {
     private void buildKeyboard(){
         typingField=new EditText(this);
         typingField.setSingleLine(true);
+        typingField.setSelectAllOnFocus(false);
         typingField.setHint("Buraya dokunun, Samsung klavyesiyle yazın");
         typingField.setTextSize(15);
         typingField.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        keyboardPanel.addView(typingField,new LinearLayout.LayoutParams(-1,dp(46)));
+        keyboardPanel.addView(typingField,new LinearLayout.LayoutParams(-1,dp(44)));
         typingField.setImeOptions(android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI);
         typingField.setShowSoftInputOnFocus(true);
         typingField.addTextChangedListener(new TextWatcher(){
@@ -248,7 +250,7 @@ public class MainActivity extends Activity {
                 int prefix=0;
                 while(prefix<lastTyped.length()&&prefix<current.length()&&lastTyped.charAt(prefix)==current.charAt(prefix))prefix++;
                 int removed=lastTyped.length()-prefix;
-                for(int i=0;i<removed;i++)queueKey(0,42);
+                if(hidConnected)for(int i=0;i<removed;i++)queueKey(0,42);
                 if(current.length()>prefix)sendTypedText(current.substring(prefix));
                 lastTyped=current;
             }
