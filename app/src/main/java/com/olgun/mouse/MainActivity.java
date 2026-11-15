@@ -48,6 +48,7 @@ public class MainActivity extends Activity {
     private EditText typingField;
     private String lastTyped="";
     private long nextKeyTime=0;
+    private int sentKeyCount=0;
     private final Executor executor = Executors.newSingleThreadExecutor();
     private static final byte[] MOUSE_DESCRIPTOR = new byte[] {
         0x05,0x01, 0x09,0x02, (byte)0xA1,0x01, (byte)0x85,0x01, 0x09,0x01, (byte)0xA1,0x00,
@@ -63,7 +64,9 @@ public class MainActivity extends Activity {
         0x05,0x07,0x19,(byte)0xE0,0x29,(byte)0xE7,0x15,0x00,0x25,0x01,
         0x75,0x01,(byte)0x95,0x08,(byte)0x81,0x02,
         0x75,0x08,(byte)0x95,0x01,(byte)0x81,0x01,
-        0x75,0x08,(byte)0x95,0x06,0x15,0x00,0x25,0x65,
+        0x05,0x08,0x19,0x01,0x29,0x05,(byte)0x95,0x05,0x75,0x01,(byte)0x91,0x02,
+        (byte)0x95,0x01,0x75,0x03,(byte)0x91,0x03,
+        (byte)0x95,0x06,0x75,0x08,0x15,0x00,0x25,0x65,
         0x05,0x07,0x19,0x00,0x29,0x65,(byte)0x81,0x00,(byte)0xC0
     };
     private final BluetoothHidDevice.Callback callback = new BluetoothHidDevice.Callback() {
@@ -214,15 +217,15 @@ public class MainActivity extends Activity {
     }
     private void sendKeyboardReport(int modifier,int code){
         if(!hidConnected||connected==null||hid==null)return;
-        try{boolean ok=hid.sendReport(connected,2,new byte[]{(byte)modifier,0,(byte)code,0,0,0,0,0});if(!ok)deviceLabel.setText("HID klavye raporu reddedildi");}
+        try{boolean ok=hid.sendReport(connected,2,new byte[]{(byte)modifier,0,(byte)code,0,0,0,0,0});if(!ok)deviceLabel.setText("HID klavye raporu reddedildi (ID 2)");else if(code!=0){sentKeyCount++;deviceLabel.setText("Klavye HID gönderildi: "+sentKeyCount);}}
         catch(Exception e){deviceLabel.setText("Klavye raporu gönderilemedi");}
     }
     private void queueKey(int modifier,int code){
         long now=SystemClock.uptimeMillis();
-        nextKeyTime=Math.max(nextKeyTime,now)+30;
+        nextKeyTime=Math.max(nextKeyTime,now)+20;
         handler.postAtTime(()->sendKeyboardReport(modifier,code),nextKeyTime);
-        handler.postAtTime(()->sendKeyboardReport(0,0),nextKeyTime+35);
-        nextKeyTime+=40;
+        handler.postAtTime(()->sendKeyboardReport(0,0),nextKeyTime+55);
+        nextKeyTime+=65;
     }
     private void sendTypedText(String text){
         if(!hidConnected || connected==null){deviceLabel.setText("HID bağlı değil: Windows yazı alamıyor");return;}
@@ -244,7 +247,7 @@ public class MainActivity extends Activity {
         typingField.setSelectAllOnFocus(false);
         typingField.setHint("Buraya dokunun, Samsung klavyesiyle yazın");
         typingField.setTextSize(15);
-        typingField.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        typingField.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         keyboardPanel.addView(typingField,new LinearLayout.LayoutParams(-1,dp(44)));
         typingField.setBackground(bg(Color.WHITE,Color.BLACK));
         typingField.setImeOptions(android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI);
