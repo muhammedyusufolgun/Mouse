@@ -6,6 +6,7 @@ import android.os.*;
 import android.bluetooth.*;
 import android.content.*;
 import android.content.pm.PackageManager;
+import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -34,6 +35,10 @@ public class MainActivity extends Activity {
     private int connectAttempts = 0;
     private int lastHidState = BluetoothProfile.STATE_DISCONNECTED;
     private TouchSurface touchSurface;
+    private boolean keyboardMode=false;
+    private int modifiers=0;
+    private LinearLayout keyboardPanel;
+    private LinearLayout mousePanel;
     private final Executor executor = Executors.newSingleThreadExecutor();
     private static final byte[] MOUSE_DESCRIPTOR = new byte[] {
         0x05,0x01, 0x09,0x02, (byte)0xA1,0x01, (byte)0x85,0x01, 0x09,0x01, (byte)0xA1,0x00,
@@ -43,6 +48,14 @@ public class MainActivity extends Activity {
         0x05,0x01, 0x09,0x30, 0x09,0x31, 0x09,0x38,
         0x15,(byte)0x81, 0x25,0x7F, 0x75,0x08, (byte)0x95,0x03,
         (byte)0x81,0x06, (byte)0xC0, (byte)0xC0
+    };
+    private static final byte[] KEYBOARD_DESCRIPTOR=new byte[]{
+        0x05,0x01,0x09,0x06,(byte)0xA1,0x01,(byte)0x85,0x02,
+        0x05,0x07,0x19,(byte)0xE0,0x29,(byte)0xE7,0x15,0x00,0x25,0x01,
+        0x75,0x01,(byte)0x95,0x08,(byte)0x81,0x02,
+        0x75,0x08,(byte)0x95,0x01,(byte)0x81,0x01,
+        0x75,0x08,(byte)0x95,0x06,0x15,0x00,0x25,0x65,
+        0x05,0x07,0x19,0x00,0x29,0x65,(byte)0x81,0x00,(byte)0xC0
     };
     private final BluetoothHidDevice.Callback callback = new BluetoothHidDevice.Callback() {
         @Override public void onAppStatusChanged(BluetoothDevice plugged, boolean registered) {
@@ -86,6 +99,11 @@ public class MainActivity extends Activity {
         TextView title=new TextView(this);title.setText("Mouse");title.setGravity(Gravity.CENTER);
         title.setTextSize(23);title.setTypeface(null,Typeface.BOLD);title.setTextColor(Color.WHITE);
         title.setBackgroundColor(Color.BLACK);root.addView(title,new LinearLayout.LayoutParams(-1,dp(32)));
+        title.setOnClickListener(v->{keyboardMode=!keyboardMode;title.setText(keyboardMode?"Klavye":"Mouse");
+            setRequestedOrientation(keyboardMode?ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE:ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+            mousePanel.setVisibility(keyboardMode?View.GONE:View.VISIBLE);
+            keyboardPanel.setVisibility(keyboardMode?View.VISIBLE:View.GONE);
+        });
         LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,dp(56));rp.topMargin=dp(4);root.addView(row,rp);
         Button pair=button("Eşleş",0xFFAADCF6);row.addView(pair,new LinearLayout.LayoutParams(dp(85),dp(44)));
@@ -110,6 +128,7 @@ public class MainActivity extends Activity {
         LinearLayout pad=new LinearLayout(this);pad.setOrientation(1);pad.setPadding(dp(10),dp(8),dp(10),dp(10));
         pad.setBackground(bg(Color.WHITE,Color.BLACK));
         LinearLayout.LayoutParams padParams=new LinearLayout.LayoutParams(-1,0,2);root.addView(pad,padParams);
+        mousePanel=pad;
         touchSurface=new TouchSurface(this);View touch=touchSurface;pad.addView(touch,new LinearLayout.LayoutParams(-1,0,1));
         touch.setOnTouchListener((v,e)->{
             switch(e.getActionMasked()){
@@ -130,6 +149,9 @@ public class MainActivity extends Activity {
         bindClick(leftButton,1);bindClick(rightButton,2);
         TextView footer=label("Muhammed Yusuf OLGUN");footer.setTextColor(0xFFAAAAAA);footer.setTextSize(12);
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(18));fp.topMargin=0;root.addView(footer,fp);
+        keyboardPanel=new LinearLayout(this);keyboardPanel.setOrientation(1);keyboardPanel.setVisibility(View.GONE);
+        root.addView(keyboardPanel,new LinearLayout.LayoutParams(-1,0,2));
+        buildKeyboard();
         View remainingSpace=new View(this);root.addView(remainingSpace,new LinearLayout.LayoutParams(1,0,1));
         updateStatus();
     }
@@ -171,6 +193,64 @@ public class MainActivity extends Activity {
             },3500);
         }catch(SecurityException e){deviceLabel.setText("Bluetooth izni gerekli");}
     }
+    private byte[] combinedDescriptor(){
+        byte[] combined=Arrays.copyOf(MOUSE_DESCRIPTOR,MOUSE_DESCRIPTOR.length+KEYBOARD_DESCRIPTOR.length);
+        System.arraycopy(KEYBOARD_DESCRIPTOR,0,combined,MOUSE_DESCRIPTOR.length,KEYBOARD_DESCRIPTOR.length);
+        return combined;
+    }
+    private void buildKeyboard(){
+        String[][] rows={
+            {"Esc","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","Del"},
+            {"1","2","3","4","5","6","7","8","9","0","-","=","Back"},
+            {"Tab","Q","W","E","R","T","Y","U","I","O","P","[","]","Enter"},
+            {"Caps","A","S","D","F","G","H","J","K","L",";","'","\\\\","↑"},
+            {"Shift","Z","X","C","V","B","N","M",",",".","/","←","↓","→"},
+            {"Ctrl","Alt","Win","Space","AltGr","Home","End","PgUp","PgDn","Ins"}
+        };
+        for(String[] keys:rows){
+            LinearLayout row=new LinearLayout(this);row.setOrientation(0);
+            keyboardPanel.addView(row,new LinearLayout.LayoutParams(-1,0,1));
+            for(String key:keys){
+                Button b=button(key,0xFFE1E1E1);b.setTextSize(11);
+                LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,key.equals("Space")?5: key.equals("Enter")||key.equals("Shift")?2:1);
+                lp.setMargins(dp(1),dp(1),dp(1),dp(1));row.addView(b,lp);
+                b.setOnClickListener(v->keyPress(key,b));
+            }
+        }
+    }
+    private void keyPress(String key,Button button){
+        int modifier=key.equals("Ctrl")?1:key.equals("Shift")?2:key.equals("Alt")?4:key.equals("Win")?8:key.equals("AltGr")?64:0;
+        if(modifier!=0){modifiers^=modifier;button.setBackground(bg((modifiers&modifier)!=0?0xFF92C8F0:0xFFE1E1E1,0));return;}
+        int code=keyCode(key);
+        if(code==0)return;
+        if(hid==null||connected==null||!hidConnected){deviceLabel.setText("HID klavye bağlı değil");return;}
+        try{
+            byte[] press=new byte[]{(byte)modifiers,0,(byte)code,0,0,0,0,0};
+            hid.sendReport(connected,2,press);
+            handler.postDelayed(()->{
+                if(hid!=null&&connected!=null&&hidConnected){
+                    try{hid.sendReport(connected,2,new byte[8]);}catch(Exception ignored){}
+                }
+            },65);
+        }catch(Exception e){deviceLabel.setText("Klavye HID raporu başarısız");}
+    }
+    private int keyCode(String key){
+        if(key.length()==1){
+            char ch=Character.toUpperCase(key.charAt(0));
+            if(ch>='A'&&ch<='Z')return 4+ch-'A';
+            if(ch>='1'&&ch<='9')return 30+ch-'1';
+            if(ch=='0')return 39;
+            switch(ch){case '-':return 45;case '=':return 46;case '[':return 47;case ']':return 48;case '\\\\':return 49;case ';':return 51;case '\'':return 52;case ',':return 54;case '.':return 55;case '/':return 56;}
+        }
+        if(key.startsWith("F")){try{int n=Integer.parseInt(key.substring(1));if(n>=1&&n<=12)return 57+n;}catch(Exception ignored){}}
+        switch(key){
+            case "Enter":return 40;case "Esc":return 41;case "Back":return 42;case "Tab":return 43;
+            case "Space":return 44;case "Caps":return 57;case "Ins":return 73;case "Home":return 74;
+            case "PgUp":return 75;case "Del":return 76;case "End":return 77;case "PgDn":return 78;
+            case "→":return 79;case "←":return 80;case "↓":return 81;case "↑":return 82;
+        }
+        return 0;
+    }
     private void startBluetooth(){
         if(adapter==null){deviceLabel.setText("Bluetooth desteklenmiyor");return;}
         if(!adapter.isEnabled()){startActivity(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE));return;}
@@ -178,7 +258,7 @@ public class MainActivity extends Activity {
             @Override public void onServiceConnected(int profile,BluetoothProfile proxy){
                 hid=(BluetoothHidDevice)proxy;
                 BluetoothHidDeviceAppSdpSettings sdp=new BluetoothHidDeviceAppSdpSettings(
-                    "Mouse","Bluetooth Touchpad","Olgun",BluetoothHidDevice.SUBCLASS1_MOUSE,MOUSE_DESCRIPTOR);
+                    "Mouse","Bluetooth Touchpad","Olgun",BluetoothHidDevice.SUBCLASS1_COMBO,combinedDescriptor());
                 String addr=getPreferences(0).getString("device",null);
                 if(addr!=null){try{selected=adapter.getRemoteDevice(addr);updateStatus();}catch(IllegalArgumentException ignored){}}
                 boolean started=hid.registerApp(sdp,null,null,executor,callback);
