@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
     private int dp(int v){return (int)(v*getResources().getDisplayMetrics().density+0.5f);}
     private Button button(String text,int color) {
         Button b=new Button(this);b.setText(text);b.setTextColor(Color.BLACK);b.setAllCaps(false);
-        b.setTextSize(13);b.setPadding(dp(5),0,dp(5),0);b.setBackground(bg(color,0));return b;
+        b.setTextSize(13);b.setTypeface(null,Typeface.BOLD);b.setPadding(dp(5),0,dp(5),0);b.setBackground(bg(color,0));return b;
     }
     private void buildUi() {
         LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(35),dp(12),dp(10));
@@ -78,7 +78,7 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,dp(56));rp.topMargin=dp(8);root.addView(row,rp);
         Button pair=button("Eşleş",0xFFAADCF6);row.addView(pair,new LinearLayout.LayoutParams(dp(85),dp(44)));
         pair.setOnClickListener(v->chooseDevice());
-        deviceLabel=new TextView(this);deviceLabel.setTextSize(12);deviceLabel.setTextColor(Color.DKGRAY);
+        deviceLabel=new TextView(this);deviceLabel.setTextSize(12);deviceLabel.setTextColor(Color.BLACK);deviceLabel.setTypeface(null,Typeface.BOLD);
         deviceLabel.setGravity(Gravity.CENTER_VERTICAL);deviceLabel.setPadding(dp(8),0,dp(4),0);
         row.addView(deviceLabel,new LinearLayout.LayoutParams(0,-1,1));
         closeButton=button("Kapat",0xFFF4AAAA);row.addView(closeButton,new LinearLayout.LayoutParams(dp(83),dp(44)));
@@ -121,7 +121,7 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(45));fp.topMargin=dp(8);root.addView(footer,fp);
         updateStatus();
     }
-    private TextView label(String s){TextView t=new TextView(this);t.setText(s);t.setTextSize(13);t.setTextColor(Color.DKGRAY);t.setGravity(Gravity.CENTER);return t;}
+    private TextView label(String s){TextView t=new TextView(this);t.setText(s);t.setTextSize(13);t.setTextColor(Color.BLACK);t.setTypeface(null,Typeface.BOLD);t.setGravity(Gravity.CENTER);return t;}
     private void bindClick(Button b,int mask){
         b.setOnTouchListener((v,e)->{
             if(e.getActionMasked()==MotionEvent.ACTION_DOWN){buttons|=mask;b.setBackground(bg(0xFFE4E4E4,0));report(0,0,0);return true;}
