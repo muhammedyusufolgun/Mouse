@@ -28,6 +28,8 @@ public class MainActivity extends Activity {
     private float lastX,lastY;
     private boolean tracking = false;
     private boolean registered = false;
+    private boolean hidConnected = false;
+    private String diagnostic = "";
     private TouchSurface touchSurface;
     private final Executor executor = Executors.newSingleThreadExecutor();
     private static final byte[] MOUSE_DESCRIPTOR = new byte[] {
@@ -41,12 +43,12 @@ public class MainActivity extends Activity {
     };
     private final BluetoothHidDevice.Callback callback = new BluetoothHidDevice.Callback() {
         @Override public void onAppStatusChanged(BluetoothDevice plugged, boolean registered) {
-            runOnUiThread(() -> { MainActivity.this.registered = registered; updateStatus(); if (registered && selected != null && hid != null) hid.connect(selected); });
+            runOnUiThread(() -> { MainActivity.this.registered = registered; diagnostic = registered ? "HID hazır" : "HID kaydı başarısız"; updateStatus(); if (registered && selected != null && hid != null && !hid.connect(selected)) deviceLabel.setText("HID bağlantı isteği reddedildi"); });
         }
         @Override public void onConnectionStateChanged(BluetoothDevice device, int state) {
             runOnUiThread(() -> {
-                if (state == BluetoothProfile.STATE_CONNECTED) connected = device;
-                else if (connected != null && connected.equals(device)) connected = null;
+                if (state == BluetoothProfile.STATE_CONNECTED) {connected = device;hidConnected = true;diagnostic = "HID bağlı";}
+                else if (connected != null && connected.equals(device)) {connected = null;hidConnected = false;diagnostic = "HID bağlantısı kesildi";}
                 updateStatus();
             });
         }
@@ -73,11 +75,11 @@ public class MainActivity extends Activity {
         b.setTextSize(13);b.setTypeface(null,Typeface.BOLD);b.setPadding(dp(5),0,dp(5),0);b.setBackground(bg(color,0));return b;
     }
     private void buildUi() {
-        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(12),dp(12),dp(6));
+        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(42),dp(12),dp(6));
         root.setBackgroundColor(Color.rgb(245,245,245));setContentView(root);
         TextView title=new TextView(this);title.setText("Mouse");title.setGravity(Gravity.CENTER);
         title.setTextSize(23);title.setTypeface(null,Typeface.BOLD);title.setTextColor(Color.WHITE);
-        title.setBackgroundColor(Color.BLACK);root.addView(title,new LinearLayout.LayoutParams(-1,dp(65)));
+        title.setBackgroundColor(Color.BLACK);root.addView(title,new LinearLayout.LayoutParams(-1,dp(32)));
         LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,dp(56));rp.topMargin=dp(4);root.addView(row,rp);
         Button pair=button("Eşleş",0xFFAADCF6);row.addView(pair,new LinearLayout.LayoutParams(dp(85),dp(44)));
@@ -99,7 +101,8 @@ public class MainActivity extends Activity {
         View gap=new View(this);root.addView(gap,new LinearLayout.LayoutParams(1,dp(5)));
         LinearLayout pad=new LinearLayout(this);pad.setOrientation(1);pad.setPadding(dp(10),dp(8),dp(10),dp(10));
         pad.setBackground(bg(Color.WHITE,Color.BLACK));
-        root.addView(pad,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout.LayoutParams padParams=new LinearLayout.LayoutParams(-1,0,2);root.addView(pad,padParams);
+        View remainingSpace=new View(this);root.addView(remainingSpace,new LinearLayout.LayoutParams(1,0,1));
         touchSurface=new TouchSurface(this);View touch=touchSurface;pad.addView(touch,new LinearLayout.LayoutParams(-1,0,1));
         touch.setOnTouchListener((v,e)->{
             switch(e.getActionMasked()){
@@ -136,14 +139,14 @@ public class MainActivity extends Activity {
             report(dx,dy,0);x-=dx;y-=dy;}
     }
     private void report(int dx,int dy,int wheel){
-        if(hid==null||connected==null)return;
+        if(hid==null||connected==null||!hidConnected){if(deviceLabel!=null)deviceLabel.setText("HID fare bağlı değil — Eşleş seçin");return;}
         try{boolean sent=hid.sendReport(connected,1,new byte[]{(byte)buttons,(byte)dx,(byte)dy,(byte)wheel});
             if(!sent)deviceLabel.setText("HID raporu gönderilemedi");}
         catch(SecurityException ex){deviceLabel.setText("Bluetooth izni gerekli");}
     }
     private void updateStatus(){
         if(deviceLabel==null)return;
-        deviceLabel.setText(connected!=null ? "Bağlı: "+connected.getName() : selected!=null ? "Seçili: "+selected.getName() : "Bağlı değil");
+        deviceLabel.setText(hidConnected && connected!=null ? "HID fare: "+connected.getName() : selected!=null ? "Seçili (HID bekleniyor): "+selected.getName() : "Bağlı değil");
     }
     private void startBluetooth(){
         if(adapter==null){deviceLabel.setText("Bluetooth desteklenmiyor");return;}
@@ -153,7 +156,7 @@ public class MainActivity extends Activity {
                 hid=(BluetoothHidDevice)proxy;
                 BluetoothHidDeviceAppSdpSettings sdp=new BluetoothHidDeviceAppSdpSettings(
                     "Mouse","Bluetooth Touchpad","Olgun",BluetoothHidDevice.SUBCLASS1_MOUSE,MOUSE_DESCRIPTOR);
-                hid.registerApp(sdp,null,null,executor,callback);
+                if(!hid.registerApp(sdp,null,null,executor,callback)){diagnostic="HID kaydı başlatılamadı";updateStatus();deviceLabel.setText(diagnostic);}
                 String addr=getPreferences(0).getString("device",null);
                 if(addr!=null){try{selected=adapter.getRemoteDevice(addr);updateStatus();if(registered)hid.connect(selected);}catch(IllegalArgumentException ignored){}}
             }
@@ -177,7 +180,7 @@ public class MainActivity extends Activity {
         for(int i=0;i<list.size();i++)names[i]=(list.get(i).getName()==null?"Cihaz":list.get(i).getName())+" ("+list.get(i).getAddress()+")";
         new AlertDialog.Builder(this).setTitle("Eşleşmiş cihaz seç").setItems(names,(d,which)->{
             selected=list.get(which);getPreferences(0).edit().putString("device",selected.getAddress()).apply();
-            updateStatus();if(hid!=null && registered)hid.connect(selected);
+            updateStatus();if(hid!=null && registered && !hid.connect(selected))deviceLabel.setText("HID bağlantı isteği reddedildi");
         }).setNeutralButton("Bluetooth Ayarları",(d,w)->startActivity(new Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)))
           .setNegativeButton("İptal",null).show();
     }
