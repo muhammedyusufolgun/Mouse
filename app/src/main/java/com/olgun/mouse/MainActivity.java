@@ -69,7 +69,7 @@ public class MainActivity extends Activity {
     };
     private final BluetoothHidDevice.Callback callback = new BluetoothHidDevice.Callback() {
         @Override public void onAppStatusChanged(BluetoothDevice plugged, boolean registered) {
-            runOnUiThread(() -> { MainActivity.this.registered = registered; diagnostic = registered ? "HID hazır" : "HID kaydı başarısız"; updateStatus(); if (registered && selected != null && hid != null) connectHid(); });
+            runOnUiThread(() -> { MainActivity.this.registered = registered; diagnostic = registered ? "HID hazır" : "HID kaydı kapandı"; if(!registered){hidConnected=false;connected=null;} updateStatus(); if (registered && selected != null && hid != null) connectHid(); });
         }
         @Override public void onConnectionStateChanged(BluetoothDevice device, int state) {
             runOnUiThread(() -> {
@@ -191,7 +191,7 @@ public class MainActivity extends Activity {
     }
     private void updateStatus(){
         if(deviceLabel==null)return;
-        deviceLabel.setText(hidConnected && connected!=null ? "HID fare: "+connected.getName() : selected!=null ? (registered ? "HID bekleniyor: " : "HID kaydı yok: ")+selected.getName() : diagnostic.isEmpty() ? "Bağlı değil" : diagnostic);
+        deviceLabel.setText(hidConnected && connected!=null ? "HID bağlı: "+connected.getName() : !registered ? "Bluetooth eşleşmesi var; HID servisi aktif değil" : selected!=null ? "HID bağlantısı bekleniyor: "+selected.getName() : diagnostic.isEmpty() ? "Cihaz seçin" : diagnostic);
     }
     private void connectHid(){
         if(shuttingDown || hid==null || selected==null || !registered || hidConnected)return;
@@ -328,10 +328,11 @@ public class MainActivity extends Activity {
                     "Mouse","Bluetooth Touchpad","Olgun",BluetoothHidDevice.SUBCLASS1_COMBO,combinedDescriptor());
                 String addr=getPreferences(0).getString("device",null);
                 if(addr!=null){try{selected=adapter.getRemoteDevice(addr);updateStatus();}catch(IllegalArgumentException ignored){}}
+                registered=false;
                 boolean started=hid.registerApp(sdp,null,null,executor,callback);
                 if(!started){diagnostic="HID kaydı başlatılamadı";updateStatus();deviceLabel.setText(diagnostic);}
             }
-            @Override public void onServiceDisconnected(int profile){hid=null;connected=null;updateStatus();}
+            @Override public void onServiceDisconnected(int profile){hid=null;connected=null;hidConnected=false;registered=false;diagnostic="HID servisi ayrıldı";updateStatus();}
         },BluetoothProfile.HID_DEVICE);
     }
     private void chooseDevice(){
