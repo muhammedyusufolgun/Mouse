@@ -15,6 +15,9 @@ import android.graphics.drawable.GradientDrawable;
 import android.view.*;
 import android.view.inputmethod.InputMethodManager;
 import android.text.Editable;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.StyleSpan;
 import android.text.TextWatcher;
 import android.widget.*;
 import java.util.*;
@@ -103,13 +106,19 @@ public class MainActivity extends Activity {
         Button b=new Button(this);b.setText(text);b.setTextColor(Color.BLACK);b.setAllCaps(false);
         b.setTextSize(13);b.setTypeface(null,Typeface.BOLD);b.setPadding(dp(5),0,dp(5),0);b.setBackground(bg(color,0));return b;
     }
+    private CharSequence styledTitle(boolean keyboard){
+        String first=keyboard?"Klavye":"Mouse";
+        SpannableString s=new SpannableString(first+"/"+(keyboard?"Mouse":"Klavye"));
+        s.setSpan(new StyleSpan(Typeface.BOLD),0,first.length(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return s;
+    }
     private void buildUi() {
         LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(38),dp(12),dp(2));
         root.setBackgroundColor(Color.rgb(245,245,245));setContentView(root);
-        TextView title=new TextView(this);title.setText("Mouse");title.setGravity(Gravity.CENTER);
-        title.setTextSize(23);title.setTypeface(null,Typeface.BOLD);title.setTextColor(Color.WHITE);
+        TextView title=new TextView(this);title.setText(styledTitle(false));title.setGravity(Gravity.CENTER);
+        title.setTextSize(23);title.setTypeface(null,Typeface.NORMAL);title.setTextColor(Color.WHITE);
         title.setBackgroundColor(Color.BLACK);root.addView(title,new LinearLayout.LayoutParams(-1,dp(32)));
-        title.setOnClickListener(v->{keyboardMode=!keyboardMode;title.setText(keyboardMode?"Klavye":"Mouse");
+        title.setOnClickListener(v->{keyboardMode=!keyboardMode;title.setText(styledTitle(keyboardMode));
             setRequestedOrientation(keyboardMode?ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE:ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
             mousePanel.setVisibility(keyboardMode?View.GONE:View.VISIBLE);
             connectionRow.setVisibility(keyboardMode?View.GONE:View.VISIBLE);
